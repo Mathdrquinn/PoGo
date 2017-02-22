@@ -1,0 +1,21 @@
+[Function: Point] [Function: S2Cell]
+Logging in to PTC with quinn198 and LaCrossefn8!
+BEGIN LOGIN
+
+!!!!!!!!!!  SIGN IN SUCCESS !!!!!!!!!!
+Your token is: TGT-33236282-ta0xkiEYpSVNDLpOACf7udnuWgrnv3bc3d9JWNnDoYdXT0lkq0-sso.pokemon.com
+
+Begin setClientPosition -----------
+Setting position to lat: 39.910601, lng: -86.051922, at time: 15:04:53 GMT-0500 (EST)
+
+Begin listCatchablePokemon -----------
+
+Begin setClientPosition -----------
+Setting position to lat: 39.910554, lng: -86.052066, at time: 15:04:55 GMT-0500 (EST)
+Authenticated, waiting for first map refresh (30s)
+
+Begin listCatchablePokemon -----------
+
+Begin setClientPosition -----------
+Setting position to lat: 39.910584, lng: -86.052678, at time: 15:05:29 GMT-0500 (EST)
+Authenticated, waiting for first map refresh (30s)
