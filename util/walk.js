@@ -45,13 +45,13 @@ const WALK_EVENTS = {
     END: 'END',
 };
 
-function walk(a, b, speed) {
+function walk(a, b, speed = 3) {
     let velocity = speed;
     let currentPt = a;
     let startPt = a;
     let endPt = b;
 
-    if (!(typeof speed === 'number' && 0 < speed && speed <= 5)) {
+    if (!(typeof speed === 'number' && 0 < speed && speed <= 25)) {
         throw new Error('The speed argument is invalid.  Speed is a number between 0 and 15');
     }
 
@@ -137,14 +137,74 @@ function walk(a, b, speed) {
                 remainingDistance: distance(currentPt, endPt),
                 speed,
             });
+            return finalPt;
         })
         .catch((err) => {
             console.log('something bad happened', err);
         });
 }
 
+const walkPath = (points, speed) => {
+
+    if (!Array.isArray(points) || points.length < 2) {
+        throw new Error('WalkPath takes an array of two or more points')
+    }
+
+    if (points.some(pt => !(pt instanceof Point))) {
+        throw new Error('The array passed contained elements that are not an a Point instance');
+    }
+
+    const pts = points.slice();
+
+    const recursiveWalk = (a, b, s) => {
+        return walk(a, b, s)
+            .then((lastPt) => {
+                if (!pts.length) {
+                    console.log('$$$$$$ THE END $$$$$$');
+                    return lastPt;
+                }
+
+                return recursiveWalk(b, pts.shift(), s);
+            })
+    }
+
+    return recursiveWalk(pts.shift(), pts.shift(), speed)
+}
+
+const walkLoop = (points, speed, opts = { count: 0 }) => {
+
+    if (!Array.isArray(points) || points.length < 2) {
+        throw new Error('WalkLoop takes an array of two or more points')
+    }
+
+    if (points.some(pt => !(pt instanceof Point))) {
+        throw new Error('The array passed contained elements that are not an a Point instance');
+    }
+
+    const startingPt = points.slice(0, 1);
+    const pts = points.concat(points.slice(0, 1));
+
+    const recursiveLoop = (points, speed) => {
+        return walkPath(points, speed)
+            .then((startOfNewLoopPt) => {
+                console.log('@@@@@ A LOOP HAS BEEN COMPLETED @@@@@');
+                if (opts.count === 0) {
+                    console.log('@@@@@ The end of looping @@@@@');
+                    return startOfNewLoopPt;
+                }
+
+                const patchedLoop = [startOfNewLoopPt].concat(points.slice(1));
+                return recursiveLoop(patchedLoop, speed, Object.assign(opts, { count: opts.count - 1 }));
+            })
+    }
+
+    return recursiveLoop(pts, speed, opts);
+}
+
 const walker = {
     walk,
+    walkPath,
+    walkLoop,
     distance,
     onBegin(cb) {
         events.subscribe(WALK_EVENTS.BEGIN, cb);
@@ -158,6 +218,8 @@ const walker = {
 };
 
 // const home = new Point(39.910631, -86.051998, 'home');
+// const cornerPoint = new Point(39.910626, -86.052767, 'corner');
+// const triplePoint = new Point(39.909579, -86.052864, 'triple');
 // const pokeStopPoint = new Point(39.908531, -86.051480, 'pokeStop');
 // walker.onBegin((obj) => {
 //     console.log('BEGINNING\n', obj)
@@ -168,6 +230,7 @@ const walker = {
 // walker.onEnd((obj) => {
 //     console.log('ENDING\n', obj)
 // })
-// walker.walk(home, pokeStopPoint, 4);
+// // walker.walk(home, pokeStopPoint, 4);
+// walker.walkLoop([home, triplePoint, pokeStopPoint], 23, { count: 3 });
 
 module.exports = walker;

@@ -25,7 +25,9 @@
     "babel-preset-stage-0": "^6.3.13",
     "bluebird": "^3.4.7",
     "bootstrap": "^3.3.7",
-    "firebase": "^3.6.3",
+    "firebase": "^3.6.10",
+    "firebase-admin": "^4.1.1",
+    "firebase-auth": "^0.1.2",
     "json-loader": "^0.5.4",
     "moment": "^2.17.1",
     "pogobuf": "^1.9.2",
@@ -38,6 +40,7 @@
     "redux-promise-middleware": "^4.1.0",
     "redux-thunk": "^2.1.0",
     "s2-geometry": "^1.2.9",
+    "uuid": "^3.0.1",
     "webpack": "^1.12.9",
     "webpack-dev-server": "^1.16.2"
   }
