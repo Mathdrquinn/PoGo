@@ -1,12 +1,22 @@
 const pogobuf = require('pogobuf');
 const POGOProtos = require('node-pogo-protos');
 const bluebird = require('bluebird');
-const { Point } = require('./point');
-const { S2Cell } = require('./S2Cell');
+const { Point } = require('./classses/point');
+const { S2Cell } = require('./classses/S2Cell');
+const walker = require('./util/walk');
+const {
+    getWayFinderLocations,
+    getRecentWayFinderLocations,
+    watchWayFinderLocations,
+    saveWayFinderLocation,
+    getPokemon,
+    savePokemon
+} = require('./util/firebase');
 console.log(Point, S2Cell)
 
 const [username, password] = process.argv.splice(2);
-const hashingKey = '3Q6D6I6F6O6Z5G9J8Z0E' || process.env.HASHING_KEY;
+const hashingKey = '5O9M8L7U3P7B7K8N6M6R' || process.env.HASHING_KEY;
+// HOME
 const home = new Point(39.910631, -86.051998, 'home');
 const cornerPoint = new Point(39.910626, -86.052767, 'corner');
 const triplePoint = new Point(39.909579, -86.052864, 'triple');
@@ -19,6 +29,10 @@ const secondHotSpotPoint = new Point(39.910347, -86.049157, 'second hot spot');
 const LakeCornerPoint = new Point(39.909648, -86.049549, 'lake corner');
 const LakePoint = new Point(39.909846, -86.050332, 'lake');
 
+// NextGear
+const nextGearEntrance = new Point(39.961135597532966, -86.14610552787781);
+const pond = new Point(39.960716200743626, -86.14465981721878);
+
 console.log(`Logging in to PTC with ${username} and ${password}`);
 
 const ptcLogin = new pogobuf.PTCLogin();
@@ -30,7 +44,7 @@ const signIn = (user, pass) => {
         .catch((error) => {
             console.log('-----  BEGIN ERROR  -----')
             console.log(error.status_code);
-            console.log(error.message);
+            console.log(Object.keys(error));
             console.log(error);
             console.log('-----  END ERROR  -----')
             console.log('\nRetry login...')
@@ -43,16 +57,15 @@ const shitBroke = (error) => {
     return;
 };
 
-const setClientPosition = (h, v) => {
+const setClientPosition = (point) => {
     const date = new Date();
+    const lat = point.exactLat;
+    const lng = point.exactLng;
     console.log('\nBegin setClientPosition -----------');
-    console.log(`Setting position to lat: ${h}, lng: ${v}, at time: ${date.toTimeString()}`);
+    console.log(`Setting position to lat: ${lat}, lng: ${lng}, at time: ${date.toTimeString()}`);
 
-    client.setPosition(h, v);
-    return {
-        lat: h,
-        lng: v,
-    };
+    client.setPosition(lat, lng);
+    return point;
 };
 
 const readInventory = () => {
@@ -79,6 +92,19 @@ const readInventory = () => {
         });
 
 }
+
+walker.onBegin((obj) => {
+    console.log('BEGINNING\n', obj)
+});
+walker.onStep((obj) => {
+    console.log('Stepping\n', obj);
+    addStep(obj.currentPt);
+    setClientPosition(obj.currentPt);
+    // addMon(obj.currentPt);
+})
+walker.onEnd((obj) => {
+    console.log('ENDING\n', obj)
+})
 
 const listCatchablePokemon = (point) => {
     return () => {
@@ -128,12 +154,16 @@ signIn(username, password)
         setClientPosition(home.lat, home.lng);
         return client.init();
     })
+    .then(() => readInventory())
+    .then(() => {
+        return walker.walkPath([nextGearEntrance, pond], 1);
+    })
     // .then(listCatchablePokemon(home))
     // .then(listCatchablePokemon(cornerPoint))
     // .then(listCatchablePokemon(triplePoint))
     // .then(listCatchablePokemon(creekPoint))
     // .then(listCatchablePokemon(pokeStopPoint))
-    .then(listCatchablePokemon(hotSpotPoint))
+    // .then(listCatchablePokemon(hotSpotPoint))
     // .then(listCatchablePokemon(entrancePoint))
     .then(() => {
         console.log('THE END');

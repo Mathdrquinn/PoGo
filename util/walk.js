@@ -1,4 +1,4 @@
-const { Point } = require('../point');
+const { Point } = require('../classses/point');
 const events = require('./events');
 
 const startTime = new Date();
