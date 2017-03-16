@@ -80,7 +80,7 @@ function walk(a, b, speed = 3) {
                     speed,
                 });
 
-                setTimeout(() => resolve(walkX(currentPt, toPT, speed)), 1000);
+                setTimeout(() => resolve(walkX(currentPt, toPT, speed)), 500);
             }
         });
 

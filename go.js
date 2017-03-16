@@ -36,9 +36,27 @@ const pond = new Point(39.960716200743626, -86.14465981721878);
 console.log(`Logging in to PTC with ${username} and ${password}`);
 
 const ptcLogin = new pogobuf.PTCLogin();
+const googleLogin = new pogobuf.GoogleLogin();
 let client;
 
-const signIn = (user, pass) => {
+const addStep = (point) => {
+    return saveWayFinderLocation(point);
+}
+
+const addMon = (point, pokemonNumber) => {
+    return savePokemon(pokemonNumber, new Date().getTime() + 360000, point);
+}
+
+const init = () => {
+    return client.init()
+        .catch((err) => {
+            console.log('Error with init:', err);
+            console.log('Retrying.....');
+            return init();
+        });
+}
+
+const ptcSignIn = (user, pass) => {
     console.log('BEGIN LOGIN');
     return ptcLogin.login(username, password)
         .catch((error) => {
@@ -48,8 +66,57 @@ const signIn = (user, pass) => {
             console.log(error);
             console.log('-----  END ERROR  -----')
             console.log('\nRetry login...')
-            return signIn(user, pass);
+            return ptcSignIn(user, pass);
         });
+}
+
+const loginWithPTC = (user, pass) => {
+    return ptcSignIn(user, pass)
+        .then(token => {
+            console.log(`\n!!!!!!!!!!  SIGN IN SUCCESS !!!!!!!!!!`);
+            console.log(`Your token is: ${token}`);
+            client = new pogobuf.Client({
+                version: 5703, // Use API version 0.51 (minimum version for hashing server)
+                useHashingServer: true,
+                hashingKey: hashingKey,
+                authToken: token,
+                authType: 'ptc',
+                maxTries: 10,
+                downloadSettings: false,
+            });
+            setClientPosition(nextGearEntrance);
+            return init();
+        })
+}
+
+const googleSignIn = (user, pass) => {
+    console.log('BEGIN LOGIN');
+    return googleLogin.login(username, password)
+        .catch((error) => {
+            console.log('-----  BEGIN ERROR  -----')
+            console.log(error.status_code);
+            console.log(Object.keys(error));
+            console.log(error);
+            console.log('-----  END ERROR  -----')
+            console.log('\nRetry login...')
+            return googleSignIn(user, pass);
+        });
+}
+
+const loginWithGoogle = () => {
+    return googleSignIn(username, password)
+        .then(token => {
+            console.log(`\n!!!!!!!!!!  SIGN IN SUCCESS !!!!!!!!!!`);
+            console.log(`Your token is: ${token}`);
+            client = new pogobuf.Client({
+                version: 5702, // Use API version 0.51 (minimum version for hashing server)
+                useHashingServer: true,
+                hashingKey: hashingKey
+            });
+            client.setAuthInfo('google', token);
+            setClientPosition(nextGearEntrance);
+            return init();
+        })
 }
 
 const shitBroke = (error) => {
@@ -57,14 +124,14 @@ const shitBroke = (error) => {
     return;
 };
 
-const setClientPosition = (point) => {
+const setClientPosition = (point, accuracy = 3, altitude = 245) => {
     const date = new Date();
     const lat = point.exactLat;
     const lng = point.exactLng;
-    console.log('\nBegin setClientPosition -----------');
+    console.log('\nBegin setClientPosition -----------', point);
     console.log(`Setting position to lat: ${lat}, lng: ${lng}, at time: ${date.toTimeString()}`);
 
-    client.setPosition(lat, lng);
+    client.setPosition(lat, lng, accuracy, altitude);
     return point;
 };
 
@@ -97,66 +164,68 @@ walker.onBegin((obj) => {
     console.log('BEGINNING\n', obj)
 });
 walker.onStep((obj) => {
-    console.log('Stepping\n', obj);
+    // console.log('Stepping\n', obj);
     addStep(obj.currentPt);
-    setClientPosition(obj.currentPt);
+    // setClientPosition(obj.currentPt);
+    listCatchablePokemon(obj.currentPt)();
     // addMon(obj.currentPt);
 })
 walker.onEnd((obj) => {
     console.log('ENDING\n', obj)
 })
 
-const listCatchablePokemon = (point) => {
+const wait = (sec) => {
     return () => {
-        console.log('\nBegin listCatchablePokemon -----------');
-
-        setClientPosition(point.lat, point.lng);
-
-        console.log('Authenticated, waiting for first map refresh (30s)');
-
         const p = new Promise((res, rej) => {
             setInterval(() => {
-                const cellIDs = pogobuf.Utils.getCellIDs(point.lat, point.lng, 5, 17);
-                res(bluebird.resolve(client.getMapObjects(cellIDs, Array(cellIDs.length).fill(0)))
-                    .then(mapObjects => {
-                        return mapObjects.map_cells;
-                    })
-                    .each(cell => {
-                        const s2Cell = new S2Cell(cell);
-                        if (cell.catchable_pokemons.length) {
-                            console.log(`---------- BEGIN POKEMON AT ${point.name} LAT: ${s2Cell.lat} LNG: ${s2Cell.lng} ----------`);
-                            console.log('Cell ' + cell.s2_cell_id.toString());
-                            console.log('Has ' + cell.catchable_pokemons.length + ' catchable Pokemon');
-                        }
-                        return bluebird.resolve(cell.catchable_pokemons)
-                            .each(catchablePokemon => {
-                                console.log(' - A ' + pogobuf.Utils.getEnumKeyByValue(POGOProtos.Enums.PokemonId, catchablePokemon.pokemon_id) + ' is asking you to catch it.');
-                            });
-                    }))
-            }, 30 * 1000);
+                res();
+            }, sec * 1000);
         });
 
         return p;
     }
+}
+
+const listCatchablePokemon = (point) => {
+    return () => {
+        console.log('\nBegin listCatchablePokemon -----------', point.exactLat, point.exactLng);
+
+        setClientPosition(point);
+
+        const cellIDs = pogobuf.Utils.getCellIDs(point.lat, point.lng, 5, 17);
+        return bluebird.resolve(client.getMapObjects(cellIDs, Array(cellIDs.length).fill(0)))
+            .then(mapObjects => {
+                console.log('mapObjects', mapObjects)
+                return mapObjects.map_cells;
+            })
+            .each(cell => {
+                const s2Cell = new S2Cell(cell);
+                console.log('cell', cell);
+                if (cell.catchable_pokemons.length) {
+                    console.log(`---------- BEGIN POKEMON AT ${point.name} LAT: ${s2Cell.lat} LNG: ${s2Cell.lng} ----------`);
+                    console.log('Cell ' + cell.s2_cell_id.toString());
+                    console.log('Has ' + cell.catchable_pokemons.length + ' catchable Pokemon');
+                }
+                return bluebird.resolve(cell.catchable_pokemons)
+                    .each(catchablePokemon => {
+                        console.log(' - A ' + pogobuf.Utils.getEnumKeyByValue(POGOProtos.Enums.PokemonId, catchablePokemon.pokemon_id) + ' is asking you to catch it.');
+                        addMon(new Point(s2Cell.lat, s2Cell.lng), POGOProtos.Enums.PokemonId)
+                    });
+            })
+            .catch(err => {
+                console.log('SOMETHING BAD!', err);
+                return Promise.reject(err);
+            });
+    }
 };
 
-signIn(username, password)
-    .then(token => {
-        console.log(`\n!!!!!!!!!!  SIGN IN SUCCESS !!!!!!!!!!`);
-        console.log(`Your token is: ${token}`);
-        client = new pogobuf.Client({
-            authType: 'ptc',
-            authToken: token,
-            version: 5100, // Use API version 0.51 (minimum version for hashing server)
-            useHashingServer: true,
-            hashingKey: hashingKey
-        });
-        setClientPosition(home.lat, home.lng);
-        return client.init();
-    })
-    .then(() => readInventory())
+
+
+loginWithPTC(username, password)
+    // .then(() => readInventory())
+    .then(wait(30))
     .then(() => {
-        return walker.walkPath([nextGearEntrance, pond], 1);
+        return walker.walkPath([home, cornerPoint, creekPoint, pokeStopPoint, home], 2);
     })
     // .then(listCatchablePokemon(home))
     // .then(listCatchablePokemon(cornerPoint))
