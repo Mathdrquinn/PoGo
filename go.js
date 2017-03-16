@@ -128,7 +128,6 @@ const setClientPosition = (point, accuracy = 3, altitude = 245) => {
     const date = new Date();
     const lat = point.exactLat;
     const lng = point.exactLng;
-    console.log('\nBegin setClientPosition -----------', point);
     console.log(`Setting position to lat: ${lat}, lng: ${lng}, at time: ${date.toTimeString()}`);
 
     client.setPosition(lat, lng, accuracy, altitude);
@@ -167,7 +166,7 @@ walker.onStep((obj) => {
     // console.log('Stepping\n', obj);
     addStep(obj.currentPt);
     // setClientPosition(obj.currentPt);
-    listCatchablePokemon(obj.currentPt)();
+    // listCatchablePokemon(obj.currentPt);
     // addMon(obj.currentPt);
 })
 walker.onEnd((obj) => {
@@ -187,36 +186,34 @@ const wait = (sec) => {
 }
 
 const listCatchablePokemon = (point) => {
-    return () => {
-        console.log('\nBegin listCatchablePokemon -----------', point.exactLat, point.exactLng);
+    console.log('\nBegin listCatchablePokemon -----------', point.exactLat, point.exactLng);
 
-        setClientPosition(point);
+    setClientPosition(point);
 
-        const cellIDs = pogobuf.Utils.getCellIDs(point.lat, point.lng, 5, 17);
-        return bluebird.resolve(client.getMapObjects(cellIDs, Array(cellIDs.length).fill(0)))
-            .then(mapObjects => {
-                console.log('mapObjects', mapObjects)
-                return mapObjects.map_cells;
-            })
-            .each(cell => {
-                const s2Cell = new S2Cell(cell);
-                console.log('cell', cell);
-                if (cell.catchable_pokemons.length) {
-                    console.log(`---------- BEGIN POKEMON AT ${point.name} LAT: ${s2Cell.lat} LNG: ${s2Cell.lng} ----------`);
-                    console.log('Cell ' + cell.s2_cell_id.toString());
-                    console.log('Has ' + cell.catchable_pokemons.length + ' catchable Pokemon');
-                }
-                return bluebird.resolve(cell.catchable_pokemons)
-                    .each(catchablePokemon => {
-                        console.log(' - A ' + pogobuf.Utils.getEnumKeyByValue(POGOProtos.Enums.PokemonId, catchablePokemon.pokemon_id) + ' is asking you to catch it.');
-                        addMon(new Point(s2Cell.lat, s2Cell.lng), POGOProtos.Enums.PokemonId)
-                    });
-            })
-            .catch(err => {
-                console.log('SOMETHING BAD!', err);
-                return Promise.reject(err);
-            });
-    }
+    const cellIDs = pogobuf.Utils.getCellIDs(point.lat, point.lng, 5, 17);
+    return bluebird.resolve(client.getMapObjects(cellIDs, Array(cellIDs.length).fill(0)))
+        .then(mapObjects => {
+            console.log('mapObjects', mapObjects)
+            return mapObjects.map_cells;
+        })
+        .each(cell => {
+            const s2Cell = new S2Cell(cell);
+            console.log('cell', cell);
+            if (cell.catchable_pokemons.length) {
+                console.log(`---------- BEGIN POKEMON AT ${point.name} LAT: ${s2Cell.lat} LNG: ${s2Cell.lng} ----------`);
+                console.log('Cell ' + cell.s2_cell_id.toString());
+                console.log('Has ' + cell.catchable_pokemons.length + ' catchable Pokemon');
+            }
+            return bluebird.resolve(cell.catchable_pokemons)
+                .each(catchablePokemon => {
+                    console.log(' - A ' + pogobuf.Utils.getEnumKeyByValue(POGOProtos.Enums.PokemonId, catchablePokemon.pokemon_id) + ' is asking you to catch it.');
+                    addMon(new Point(s2Cell.lat, s2Cell.lng), POGOProtos.Enums.PokemonId)
+                });
+        })
+        .catch(err => {
+            console.log('SOMETHING BAD!', err);
+            return Promise.reject(err);
+        });
 };
 
 
@@ -225,7 +222,7 @@ loginWithPTC(username, password)
     // .then(() => readInventory())
     .then(wait(30))
     .then(() => {
-        return walker.walkPath([home, cornerPoint, creekPoint, pokeStopPoint, home], 2);
+        return walker.walkPath([home, cornerPoint, creekPoint, pokeStopPoint, home], 2, listCatchablePokemon);
     })
     // .then(listCatchablePokemon(home))
     // .then(listCatchablePokemon(cornerPoint))

@@ -45,7 +45,7 @@ const WALK_EVENTS = {
     END: 'END',
 };
 
-function walk(a, b, speed = 3) {
+function walk(a, b, speed = 3, cb) {
     let velocity = speed;
     let currentPt = a;
     let startPt = a;
@@ -66,7 +66,7 @@ function walk(a, b, speed = 3) {
             const direction = (toPT.exactLat - fromPt.exactLat) > 0 ? 1 : -1;
 
             if (interimDistance < speed) {
-                resolve(fromPt);
+                resolve();
             } else {
                 const change = direction * distanceToWalk(speed);
                 currentPt = new Point(fromPt.exactLat + change, fromPt.exactLng);
@@ -84,7 +84,9 @@ function walk(a, b, speed = 3) {
             }
         });
 
-        return p;
+        return p
+            .then(() => cb(currentPt))
+            .then(() => fromPt);
     }
     const walkY = (fromPt, toPT, speed) => {
         const p = new Promise((resolve) => {
@@ -93,7 +95,7 @@ function walk(a, b, speed = 3) {
             const direction = (toPT.exactLng - fromPt.exactLng) > 0 ? 1 : -1;
 
             if (interimDistance < speed) {
-                resolve(fromPt);
+                resolve();
             } else {
                 const change = direction * distanceToWalk(speed);
 
@@ -112,7 +114,9 @@ function walk(a, b, speed = 3) {
             }
         });
 
-        return p;
+        return p
+            .then(() => cb(currentPt))
+            .then(() => fromPt);
     }
 
     events.publish(WALK_EVENTS.BEGIN, {
@@ -144,7 +148,7 @@ function walk(a, b, speed = 3) {
         });
 }
 
-const walkPath = (points, speed) => {
+const walkPath = (points, speed, cb) => {
 
     if (!Array.isArray(points) || points.length < 2) {
         throw new Error('WalkPath takes an array of two or more points')
@@ -157,7 +161,7 @@ const walkPath = (points, speed) => {
     const pts = points.slice();
 
     const recursiveWalk = (a, b, s) => {
-        return walk(a, b, s)
+        return walk(a, b, s, cb)
             .then((lastPt) => {
                 if (!pts.length) {
                     console.log('$$$$$$ THE END $$$$$$');
@@ -171,7 +175,7 @@ const walkPath = (points, speed) => {
     return recursiveWalk(pts.shift(), pts.shift(), speed)
 }
 
-const walkLoop = (points, speed, opts = { count: 0 }) => {
+const walkLoop = (points, speed, cb, opts = { count: 0 }) => {
 
     if (!Array.isArray(points) || points.length < 2) {
         throw new Error('WalkLoop takes an array of two or more points')
@@ -185,7 +189,7 @@ const walkLoop = (points, speed, opts = { count: 0 }) => {
     const pts = points.concat(points.slice(0, 1));
 
     const recursiveLoop = (points, speed) => {
-        return walkPath(points, speed)
+        return walkPath(points, speed, cb)
             .then((startOfNewLoopPt) => {
                 console.log('@@@@@ A LOOP HAS BEEN COMPLETED @@@@@');
                 if (opts.count === 0) {
